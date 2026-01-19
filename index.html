@@ -1,0 +1,932 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Fragments — Start + Manual + Auto + Outline + Loupe</title>
+  <style>
+    html, body { margin:0; height:100%; background:#111; overflow:hidden; }
+    canvas { display:block; }
+
+    #uiPanel{
+      position:fixed; left:12px; top:12px; z-index:10;
+      width:min(460px, calc(100vw - 24px));
+      display:none;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      color:#eee; font-size:14px;
+      border-radius:14px;
+      background: rgba(0,0,0,0.50);
+      backdrop-filter: blur(10px);
+      box-shadow: 0 18px 70px rgba(0,0,0,0.55);
+      opacity:0; transform: translateY(-6px);
+      transition: opacity 520ms ease, transform 520ms ease;
+      user-select:none;
+    }
+    #uiPanel.show{ display:block; opacity:1; transform:translateY(0); }
+
+    .panelHeader{
+      display:flex; align-items:center; justify-content:space-between;
+      padding:10px 10px 8px; cursor:grab;
+    }
+    .panelHeader:active{ cursor:grabbing; }
+    .panelTitle{
+      font-weight:650; letter-spacing:0.2px; font-size:13px;
+      color: rgba(255,255,255,0.88);
+      display:flex; gap:10px; align-items:center;
+    }
+    .pill{
+      padding:2px 8px; border-radius:999px;
+      background: rgba(255,255,255,0.10);
+      font-size:12px; color: rgba(255,255,255,0.82);
+    }
+    .iconBtn{
+      border:0; border-radius:10px;
+      background: rgba(255,255,255,0.08);
+      color: rgba(255,255,255,0.9);
+      width:34px; height:30px;
+      cursor:pointer;
+      display:grid; place-items:center;
+      transition: background 160ms ease, transform 160ms ease;
+    }
+    .iconBtn:hover{ background: rgba(255,255,255,0.14); transform: translateY(-1px); }
+    .iconBtn:active{ transform: translateY(1px); }
+
+    #uiPanel.collapsed .panelBody{ display:none; }
+    #uiPanel.collapsed{ width:240px; }
+
+    .panelBody{ padding:0 12px 12px; display:grid; gap:10px; }
+    .row{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+
+    button, select{
+      border:0; border-radius:10px; padding:8px 10px;
+      background:#2b2b2b; color:#fff; cursor:pointer;
+    }
+    button:hover, select:hover{ background:#3a3a3a; }
+    button.primary{ background:#4a4a4a; }
+    button.primary:hover{ background:#5a5a5a; }
+
+    label{ display:inline-flex; gap:8px; align-items:center; }
+    input[type="range"]{ width:160px; }
+
+    .progressWrap{
+      display:grid; gap:6px;
+      padding:10px 10px; border-radius:12px;
+      background: rgba(255,255,255,0.06);
+    }
+    .progressTop{
+      display:flex; justify-content:space-between; align-items:center;
+      font-size:13px; color: rgba(255,255,255,0.9);
+    }
+    .bar{
+      position:relative; height:10px; border-radius:999px;
+      background: rgba(255,255,255,0.12); overflow:hidden;
+    }
+    .fill{
+      position:absolute; left:0; top:0; bottom:0; width:0%;
+      background: rgba(255,255,255,0.75);
+      border-radius:999px;
+      transition: width 80ms linear;
+    }
+    .hint{ font-size:12px; color: rgba(255,255,255,0.7); line-height:1.25; }
+
+    #startOverlay{
+      position:fixed; inset:0; z-index:20;
+      display:grid; place-items:center;
+      pointer-events:auto;
+      background: radial-gradient(circle at 50% 40%, rgba(0,0,0,0.25), rgba(0,0,0,0.88));
+      transition: opacity 900ms ease;
+    }
+    #startOverlay.fadeOut{ opacity:0; pointer-events:none; }
+
+    .startCenter{
+      text-align:center;
+      width:min(820px, calc(100vw - 48px));
+      padding:24px 18px 20px;
+      border-radius:22px;
+      background: rgba(0,0,0,0.36);
+      backdrop-filter: blur(12px);
+      box-shadow: 0 20px 90px rgba(0,0,0,0.65);
+      color: rgba(255,255,255,0.92);
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      transform: translateY(0);
+      transition: transform 900ms ease, opacity 900ms ease;
+    }
+    #startOverlay.fadeOut .startCenter{ transform: translateY(10px) scale(0.99); opacity:0; }
+
+    .startTitle{
+      margin:0 0 8px;
+      font-size: clamp(30px, 4vw, 48px);
+      letter-spacing:0.6px;
+      font-weight:720;
+    }
+    .startSubtitle{
+      margin:0 0 18px;
+      color: rgba(255,255,255,0.72);
+      font-size:14px;
+      line-height:1.35;
+    }
+    #btnStart{
+      padding:12px 18px; border-radius:14px;
+      background: rgba(255,255,255,0.92);
+      color:#000; font-weight:750; letter-spacing:0.2px;
+      box-shadow: 0 12px 40px rgba(0,0,0,0.4);
+      transition: transform 180ms ease, background 180ms ease;
+    }
+    #btnStart:hover{ background: rgba(255,255,255,1); transform: translateY(-1px); }
+    #btnStart:active{ transform: translateY(1px); }
+
+    .vignette{
+      position:fixed; inset:0; z-index:5; pointer-events:none;
+      background: radial-gradient(circle at 50% 45%, rgba(0,0,0,0.0), rgba(0,0,0,0.55) 70%, rgba(0,0,0,0.82));
+      opacity:0.55;
+      transition: opacity 900ms ease;
+    }
+    .vignette.soft{ opacity:0.22; }
+
+    #loupe{
+      position:fixed; width:220px; height:220px;
+      border-radius:999px; pointer-events:none; z-index:30;
+      display:none;
+      box-shadow: 0 18px 60px rgba(0,0,0,0.55);
+      outline:2px solid rgba(255,255,255,0.22);
+    }
+    #loupe::after{
+      content:""; position:absolute; inset:0; border-radius:999px;
+      box-shadow: inset 0 0 0 2px rgba(0,0,0,0.55);
+    }
+  </style>
+</head>
+<body>
+  <div class="vignette" id="vignette"></div>
+
+  <div id="startOverlay">
+    <div class="startCenter">
+      <h1 class="startTitle">Fragments / Réassemblage</h1>
+      <p class="startSubtitle">Manual drag: pieces straighten on grab. Auto assemble: smooth % + final lock.</p>
+      <button id="btnStart">Start</button>
+    </div>
+  </div>
+
+  <div id="uiPanel">
+    <div class="panelHeader" id="panelHeader">
+      <div class="panelTitle">Controls <span class="pill"><span id="pct">0</span>%</span></div>
+      <button class="iconBtn" id="btnCollapse" title="Collapse / expand"><span id="collapseIcon">▾</span></button>
+    </div>
+
+    <div class="panelBody" id="panelBody">
+      <div class="progressWrap">
+        <div class="progressTop">
+          <div>Reassembly</div>
+          <div class="pill"><span id="pct2">0</span>%</div>
+        </div>
+        <div class="bar"><div class="fill" id="fill"></div></div>
+        <div class="hint" id="statusHint">Manual: locks add progress. Auto: % moves during animation and final locks.</div>
+      </div>
+
+      <div class="row">
+        <button id="btnScatter">Scatter</button>
+        <button id="btnAssemble" class="primary">Assemble</button>
+        <button id="btnInFrame">Bring in frame</button>
+      </div>
+
+      <div class="row">
+        <label>Order
+          <select id="order">
+            <option value="center">Center → outward</option>
+            <option value="top">Top → bottom</option>
+            <option value="random">Random</option>
+          </select>
+        </label>
+        <label class="pill"><input id="lockMode" type="checkbox" checked /> Lock</label>
+        <label class="pill"><input id="showOutline" type="checkbox" checked /> Outline</label>
+      </div>
+
+      <div class="row">
+        <label>Stagger
+          <input id="stagger" type="range" min="0" max="400" value="120">
+          <span id="staggerVal">120</span>ms
+        </label>
+        <label>Duration
+          <input id="duration" type="range" min="200" max="3200" value="1400">
+          <span id="durationVal">1400</span>ms
+        </label>
+      </div>
+
+      <div class="hint">Loupe at 100% (press <b>L</b>). Wheel = zoom loupe.</div>
+    </div>
+  </div>
+
+  <canvas id="c"></canvas>
+  <canvas id="loupe"></canvas>
+
+  <script>
+    const PIECE_COUNT = 14;
+    const DOWNSAMPLE = 8;
+    const pieceSrc = (i) => `piece_${String(i).padStart(2, "0")}.png`;
+
+    let BASE_W = 2048;
+    let BASE_H = 1152;
+
+    const HOME_X = 0;
+    const HOME_Y = 0;
+
+    const LOCK_DIST = 18;
+    const MAGNET_PULL = 0.28;
+
+    const OUTLINE_ALPHA = 0.18;
+    const OUTLINE_THICK_BASEPX = 2;
+
+    const INTRO_ZOOM_START = 0.94;
+    const INTRO_ZOOM_END   = 1.06;
+    const INTRO_ZOOM_SPEED = 0.06;
+    const POST_ZOOM_START  = 1.10;
+    const POST_ZOOM_END    = 1.00;
+    const POST_ZOOM_SPEED  = 0.08;
+
+    const canvas = document.getElementById("c");
+    const ctx = canvas.getContext("2d");
+
+    function fitCanvas(){
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = Math.floor(window.innerWidth * dpr);
+      canvas.height = Math.floor(window.innerHeight * dpr);
+      canvas.style.width = window.innerWidth + "px";
+      canvas.style.height = window.innerHeight + "px";
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+    window.addEventListener("resize", fitCanvas);
+    fitCanvas();
+
+    function getScale(){ return Math.min(window.innerWidth/BASE_W, window.innerHeight/BASE_H); }
+    function getOffset(scale){
+      return { ox:(window.innerWidth-BASE_W*scale)*0.5, oy:(window.innerHeight-BASE_H*scale)*0.5 };
+    }
+
+    let zoomMul = INTRO_ZOOM_START;
+    let zoomTarget = INTRO_ZOOM_END;
+
+    const pctEl = document.getElementById("pct");
+    const pct2El = document.getElementById("pct2");
+    const fillEl = document.getElementById("fill");
+    const hintEl = document.getElementById("statusHint");
+    const orderSel = document.getElementById("order");
+    const lockMode = document.getElementById("lockMode");
+    const showOutline = document.getElementById("showOutline");
+    const staggerInput = document.getElementById("stagger");
+    const durationInput = document.getElementById("duration");
+    const staggerVal = document.getElementById("staggerVal");
+    const durationVal = document.getElementById("durationVal");
+    const uiPanel = document.getElementById("uiPanel");
+
+    function hint(t){ hintEl.textContent = t; }
+    function syncLabels(){ staggerVal.textContent = staggerInput.value; durationVal.textContent = durationInput.value; }
+    staggerInput.addEventListener("input", syncLabels);
+    durationInput.addEventListener("input", syncLabels);
+    syncLabels();
+
+    const easeInOutCubic = (t) => t < 0.5 ? 4*t*t*t : 1 - Math.pow(-2*t+2,3)/2;
+
+    const pieces = [];
+    let introMode = true;
+    let lastTime = performance.now();
+
+    let autoAssembling = false;
+    let autoEndTime = 0;
+
+    let outlineCanvas = null;
+
+    function loadImage(src){
+      return new Promise((resolve,reject)=>{
+        const img = new Image();
+        img.onload = ()=>resolve(img);
+        img.onerror = reject;
+        img.src = src;
+      });
+    }
+
+    async function buildHitGrid(img){
+      const w = img.naturalWidth, h = img.naturalHeight;
+      const o1 = document.createElement("canvas");
+      o1.width=w; o1.height=h;
+      const c1 = o1.getContext("2d", { willReadFrequently:true });
+      c1.clearRect(0,0,w,h);
+      c1.drawImage(img,0,0);
+      const data = c1.getImageData(0,0,w,h).data;
+
+      let minX=w, minY=h, maxX=-1, maxY=-1;
+      for(let y=0;y<h;y++){
+        const row=y*w*4;
+        for(let x=0;x<w;x++){
+          const a=data[row + x*4 + 3];
+          if(a>0){
+            if(x<minX) minX=x;
+            if(y<minY) minY=y;
+            if(x>maxX) maxX=x;
+            if(y>maxY) maxY=y;
+          }
+        }
+      }
+      if(maxX<0) return { bbox:{x:0,y:0,w:0,h:0}, grid:null, gw:0, gh:0 };
+
+      const bboxW=maxX-minX+1, bboxH=maxY-minY+1;
+      const gw=Math.max(1, Math.floor(bboxW/DOWNSAMPLE));
+      const gh=Math.max(1, Math.floor(bboxH/DOWNSAMPLE));
+
+      const o2=document.createElement("canvas");
+      o2.width=gw; o2.height=gh;
+      const c2=o2.getContext("2d", { willReadFrequently:true });
+      c2.clearRect(0,0,gw,gh);
+      c2.drawImage(img, minX, minY, bboxW, bboxH, 0,0,gw,gh);
+
+      const data2=c2.getImageData(0,0,gw,gh).data;
+      const grid=new Uint8Array(gw*gh);
+      for(let i=0;i<gw*gh;i++) grid[i]=data2[i*4+3];
+
+      return { bbox:{x:minX,y:minY,w:bboxW,h:bboxH}, grid, gw, gh };
+    }
+
+    function buildUnionMaskFromPieces(){
+      const oc=document.createElement("canvas");
+      oc.width=BASE_W; oc.height=BASE_H;
+      const c=oc.getContext("2d");
+      c.clearRect(0,0,BASE_W,BASE_H);
+      for(const p of pieces){
+        c.save();
+        c.translate(HOME_X, HOME_Y);
+        c.drawImage(p.img, 0, 0);
+        c.restore();
+      }
+      return oc;
+    }
+
+    function buildOutlineRing(unionMask){
+      const oc=document.createElement("canvas");
+      oc.width=BASE_W; oc.height=BASE_H;
+      const c=oc.getContext("2d");
+      c.clearRect(0,0,BASE_W,BASE_H);
+
+      for(let dy=-OUTLINE_THICK_BASEPX; dy<=OUTLINE_THICK_BASEPX; dy++){
+        for(let dx=-OUTLINE_THICK_BASEPX; dx<=OUTLINE_THICK_BASEPX; dx++){
+          if(dx*dx+dy*dy > OUTLINE_THICK_BASEPX*OUTLINE_THICK_BASEPX) continue;
+          c.drawImage(unionMask, dx, dy);
+        }
+      }
+      c.globalCompositeOperation="destination-out";
+      c.drawImage(unionMask,0,0);
+      c.globalCompositeOperation="source-over";
+
+      c.globalCompositeOperation="source-in";
+      c.fillStyle="#ffffff";
+      c.fillRect(0,0,BASE_W,BASE_H);
+      c.globalCompositeOperation="source-over";
+
+      return oc;
+    }
+
+    function drawOutline(scale, ox, oy){
+      if(!showOutline.checked || !outlineCanvas) return;
+      ctx.save();
+      ctx.globalAlpha = OUTLINE_ALPHA;
+      ctx.translate(ox + HOME_X*scale, oy + HOME_Y*scale);
+      ctx.scale(scale, scale);
+      ctx.drawImage(outlineCanvas, 0, 0);
+      ctx.restore();
+    }
+
+    function rotatedExtentsOfBBox(bb, rot){
+      const x0=bb.x, y0=bb.y, x1=bb.x+bb.w, y1=bb.y+bb.h;
+      const corners=[{x:x0,y:y0},{x:x1,y:y0},{x:x0,y:y1},{x:x1,y:y1}];
+      const c=Math.cos(rot), s=Math.sin(rot);
+      let minX=Infinity,maxX=-Infinity,minY=Infinity,maxY=-Infinity;
+      for(const p of corners){
+        const rx=p.x*c - p.y*s;
+        const ry=p.x*s + p.y*c;
+        if(rx<minX) minX=rx;
+        if(rx>maxX) maxX=rx;
+        if(ry<minY) minY=ry;
+        if(ry>maxY) maxY=ry;
+      }
+      return {minX,maxX,minY,maxY};
+    }
+
+    function randomScatterForPiece(p){
+      const scale=getScale()/zoomMul;
+      const vw=window.innerWidth/scale, vh=window.innerHeight/scale;
+      const bb=p.hit.bbox, margin=26;
+
+      for(let attempt=0; attempt<14; attempt++){
+        const rot=(Math.random()*2-1)*0.85;
+        const ext=rotatedExtentsOfBBox(bb, rot);
+
+        const minX=margin - ext.minX;
+        const maxX=(vw-margin) - ext.maxX;
+        const minY=margin - ext.minY;
+        const maxY=(vh-margin) - ext.maxY;
+
+        if(minX<=maxX && minY<=maxY){
+          return { x: minX + Math.random()*(maxX-minX), y: minY + Math.random()*(maxY-minY), rot };
+        }
+      }
+      return {x:0,y:0,rot:0};
+    }
+
+    function bringAllInFrame(){
+      const now=performance.now();
+      for(const p of pieces){
+        if(p.snapped) continue;
+        const s=randomScatterForPiece(p);
+        p.x=s.x; p.y=s.y; p.rot=s.rot;
+        p.startMs = now + 1e9;
+      }
+      hint("Brought loose pieces inside screen.");
+    }
+
+    function applyScatterInstant(){
+      autoAssembling=false;
+      autoEndTime = 0;
+      const now=performance.now();
+      for(const p of pieces){
+        const s=randomScatterForPiece(p);
+        p.x=s.x; p.y=s.y; p.rot=s.rot;
+        p.snapped=false;
+        p.startMs = now + 1e9;
+      }
+      hint("Scattered. Manual locks add progress.");
+    }
+
+    function computeProgressLockedOnly(){
+      let locked=0;
+      for(const p of pieces) if(p.snapped) locked++;
+      return locked / pieces.length;
+    }
+
+    function computeProgressSmooth(now){
+      let sum = 0;
+      for(const p of pieces){
+        if(p.snapped){ sum += 1; continue; }
+
+        const end = p.startMs + p.durMs;
+        if(now < p.startMs){ sum += 0; continue; }
+        if(now >= end){ sum += 1; continue; }
+
+        const t = (now - p.startMs) / p.durMs;
+        sum += easeInOutCubic(Math.max(0, Math.min(1, t)));
+      }
+      return sum / pieces.length;
+    }
+
+    function isFullyAssembled(){ return pieces.length>0 && pieces.every(p=>p.snapped); }
+
+    function lockToHome(p){
+      p.x=HOME_X; p.y=HOME_Y; p.rot=0;
+      p.snapped=true;
+      p.startMs = performance.now() + 1e9;
+    }
+
+    function finalizeAutoAssemble(){
+      for(const p of pieces) lockToHome(p);
+      autoAssembling = false;
+      autoEndTime = 0;
+      hint("✅ Auto complete — locked to final position.");
+    }
+
+    function computeAnchorsForOrdering(){
+      for(const p of pieces){
+        const bb=p.hit.bbox;
+        p.anchor={ cx: bb.x+bb.w*0.5, cy: bb.y+bb.h*0.5 };
+      }
+    }
+    function orderedIndices(mode){
+      const idx=pieces.map((_,i)=>i);
+      if(mode==="random"){
+        for(let i=idx.length-1;i>0;i--){
+          const j=Math.floor(Math.random()*(i+1));
+          [idx[i], idx[j]]=[idx[j], idx[i]];
+        }
+        return idx;
+      }
+      if(mode==="top"){
+        return idx.sort((a,b)=>{
+          const pa=pieces[a].anchor, pb=pieces[b].anchor;
+          if(pa.cy!==pb.cy) return pa.cy-pb.cy;
+          return pa.cx-pb.cx;
+        });
+      }
+      const cx=BASE_W*0.5, cy=BASE_H*0.5;
+      return idx.sort((a,b)=>{
+        const pa=pieces[a].anchor, pb=pieces[b].anchor;
+        const da=(pa.cx-cx)**2 + (pa.cy-cy)**2;
+        const db=(pb.cx-cx)**2 + (pb.cy-cy)**2;
+        return da-db;
+      });
+    }
+
+    function animateAssembleProgressively(mode, staggerMs, durationMs){
+      autoAssembling=true;
+
+      const now=performance.now();
+      const order=orderedIndices(mode);
+
+      autoEndTime = now + ((order.length - 1) * staggerMs) + durationMs + 40;
+
+      order.forEach((pi,k)=>{
+        const p=pieces[pi];
+        if(p.snapped) return;
+        p.x0=p.x; p.y0=p.y; p.rot0=p.rot;
+        p.startMs = now + k*staggerMs;
+        p.durMs = durationMs;
+        p.snapped = false;
+      });
+
+      hint(`Assembling (${mode})…`);
+    }
+
+    function screenToPieceLocal(p, sx, sy){
+      const baseScale=getScale();
+      const scale=baseScale*zoomMul;
+      const {ox,oy}=getOffset(scale);
+      const bx=(sx-ox)/scale, by=(sy-oy)/scale;
+
+      const dx=bx-p.x, dy=by-p.y;
+      const cr=Math.cos(-p.rot), sr=Math.sin(-p.rot);
+      return { lx: dx*cr - dy*sr, ly: dx*sr + dy*cr };
+    }
+
+    function alphaHit(p, lx, ly){
+      const bb=p.hit.bbox;
+      if(lx<bb.x || ly<bb.y || lx>=bb.x+bb.w || ly>=bb.y+bb.h) return false;
+      const {grid, gw, gh}=p.hit;
+      if(!grid) return true;
+      const u=(lx-bb.x)/bb.w, v=(ly-bb.y)/bb.h;
+      const gx=Math.max(0, Math.min(gw-1, Math.floor(u*gw)));
+      const gy=Math.max(0, Math.min(gh-1, Math.floor(v*gh)));
+      return grid[gy*gw+gx] > 12;
+    }
+
+    function findTopPieceAt(screenX, screenY){
+      for(let i=pieces.length-1;i>=0;i--){
+        const p=pieces[i];
+        if(p.snapped) continue;
+        const {lx,ly}=screenToPieceLocal(p, screenX, screenY);
+        if(alphaHit(p,lx,ly)) return p;
+      }
+      return null;
+    }
+
+    function nearHome(p){ return Math.hypot(p.x-HOME_X, p.y-HOME_Y) <= LOCK_DIST; }
+
+    let dragPiece=null, isDraggingPiece=false;
+    let dragOffsetLocal={x:0,y:0};
+
+    function bringPieceToTop(p){
+      const i=pieces.indexOf(p);
+      if(i>=0){ pieces.splice(i,1); pieces.push(p); }
+    }
+    function screenToBase(sx,sy){
+      const baseScale=getScale();
+      const scale=baseScale*zoomMul;
+      const {ox,oy}=getOffset(scale);
+      return { bx:(sx-ox)/scale, by:(sy-oy)/scale };
+    }
+
+    function pointerDown(e){
+      if(introMode) return;
+      if(isFullyAssembled()) return;
+
+      autoAssembling=false;
+
+      const p=findTopPieceAt(e.clientX, e.clientY);
+      if(!p || p.snapped) return;
+
+      isDraggingPiece=true;
+      dragPiece=p;
+
+      dragPiece.startMs = performance.now() + 1e9;
+
+      bringPieceToTop(dragPiece);
+
+      const {lx,ly}=screenToPieceLocal(dragPiece, e.clientX, e.clientY);
+      const {bx,by}=screenToBase(e.clientX, e.clientY);
+
+      dragPiece.rot=0;
+
+      dragPiece.x = bx - lx;
+      dragPiece.y = by - ly;
+
+      dragOffsetLocal.x=lx;
+      dragOffsetLocal.y=ly;
+
+      hint(`Dragging piece ${dragPiece.id}…`);
+    }
+
+    function pointerMove(e){
+      if(!isDraggingPiece || !dragPiece) return;
+
+      const {bx,by}=screenToBase(e.clientX, e.clientY);
+
+      dragPiece.x = bx - dragOffsetLocal.x;
+      dragPiece.y = by - dragOffsetLocal.y;
+      dragPiece.rot = 0;
+
+      if(lockMode.checked && nearHome(dragPiece)){
+        dragPiece.x += (HOME_X - dragPiece.x) * MAGNET_PULL;
+        dragPiece.y += (HOME_Y - dragPiece.y) * MAGNET_PULL;
+      }
+    }
+
+    function pointerUp(){
+      if(!isDraggingPiece || !dragPiece) return;
+
+      if(lockMode.checked && nearHome(dragPiece)){
+        lockToHome(dragPiece);
+        hint(`✅ Locked. ${Math.round(computeProgressLockedOnly()*100)}%`);
+      } else {
+        hint("Not locked — place it closer to the outline.");
+      }
+
+      isDraggingPiece=false;
+      dragPiece=null;
+    }
+
+    canvas.addEventListener("mousedown", pointerDown);
+    window.addEventListener("mousemove", pointerMove);
+    window.addEventListener("mouseup", pointerUp);
+
+    canvas.addEventListener("touchstart", (e)=>{
+      const t=e.touches[0];
+      pointerDown({clientX:t.clientX, clientY:t.clientY});
+    }, {passive:true});
+    window.addEventListener("touchmove", (e)=>{
+      if(!isDraggingPiece) return;
+      const t=e.touches[0];
+      pointerMove({clientX:t.clientX, clientY:t.clientY});
+    }, {passive:true});
+    window.addEventListener("touchend", pointerUp);
+
+    function keepInFrameBounce(p){
+      const scale=getScale()/zoomMul;
+      const vw=window.innerWidth/scale, vh=window.innerHeight/scale;
+      const margin=26;
+
+      const bb=p.hit.bbox;
+      const ext=rotatedExtentsOfBBox(bb, p.rot);
+
+      const minX = margin - ext.minX;
+      const maxX = (vw - margin) - ext.maxX;
+      const minY = margin - ext.minY;
+      const maxY = (vh - margin) - ext.maxY;
+
+      if(p.x<minX){ p.x=minX; p.vx*=-1; }
+      if(p.x>maxX){ p.x=maxX; p.vx*=-1; }
+      if(p.y<minY){ p.y=minY; p.vy*=-1; }
+      if(p.y>maxY){ p.y=maxY; p.vy*=-1; }
+    }
+
+    document.getElementById("btnScatter").addEventListener("click", applyScatterInstant);
+    document.getElementById("btnInFrame").addEventListener("click", bringAllInFrame);
+    document.getElementById("btnAssemble").addEventListener("click", ()=>{
+      animateAssembleProgressively(orderSel.value, Number(staggerInput.value), Number(durationInput.value));
+    });
+
+    const startOverlay=document.getElementById("startOverlay");
+    const btnStart=document.getElementById("btnStart");
+    const vignette=document.getElementById("vignette");
+
+    function enterInteractiveMode(){
+      if(!introMode) return;
+      introMode=false;
+
+      zoomMul = POST_ZOOM_START;
+      zoomTarget = POST_ZOOM_END;
+
+      applyScatterInstant();
+      for(const p of pieces){ p.vx=0; p.vy=0; p.vrot=0; }
+
+      startOverlay.classList.add("fadeOut");
+      vignette.classList.add("soft");
+      uiPanel.classList.add("show");
+      setTimeout(()=>{ startOverlay.style.display="none"; }, 980);
+    }
+    btnStart.addEventListener("click", enterInteractiveMode);
+    window.addEventListener("keydown", (e)=>{ if(e.key==="Enter") enterInteractiveMode(); });
+
+    const btnCollapse=document.getElementById("btnCollapse");
+    const collapseIcon=document.getElementById("collapseIcon");
+    const panelHeader=document.getElementById("panelHeader");
+
+    function setCollapsed(collapsed){
+      uiPanel.classList.toggle("collapsed", collapsed);
+      collapseIcon.textContent = collapsed ? "▸" : "▾";
+      clampPanelToViewport();
+    }
+    btnCollapse.addEventListener("click", (e)=>{
+      e.stopPropagation();
+      setCollapsed(!uiPanel.classList.contains("collapsed"));
+    });
+
+    let draggingPanel=false, dragOffX=0, dragOffY=0;
+    function clampPanelToViewport(){
+      const rect=uiPanel.getBoundingClientRect();
+      const pad=8;
+      const maxX=window.innerWidth-rect.width-pad;
+      const maxY=window.innerHeight-rect.height-pad;
+      uiPanel.style.left = Math.max(pad, Math.min(maxX, rect.left))+"px";
+      uiPanel.style.top  = Math.max(pad, Math.min(maxY, rect.top ))+"px";
+    }
+    function startDragPanel(x,y){
+      draggingPanel=true;
+      const rect=uiPanel.getBoundingClientRect();
+      dragOffX=x-rect.left; dragOffY=y-rect.top;
+    }
+    function moveDragPanel(x,y){
+      if(!draggingPanel) return;
+      uiPanel.style.left = (x-dragOffX)+"px";
+      uiPanel.style.top  = (y-dragOffY)+"px";
+      clampPanelToViewport();
+    }
+    function endDragPanel(){ draggingPanel=false; }
+
+    panelHeader.addEventListener("mousedown",(e)=>startDragPanel(e.clientX,e.clientY));
+    window.addEventListener("mousemove",(e)=>moveDragPanel(e.clientX,e.clientY));
+    window.addEventListener("mouseup", endDragPanel);
+    window.addEventListener("resize", clampPanelToViewport);
+
+    const loupe=document.getElementById("loupe");
+    const lctx=loupe.getContext("2d");
+    let loupeEnabled=true, loupeVisible=false, loupeZoom=2.6, loupeRadius=110;
+    let mouseX=window.innerWidth/2, mouseY=window.innerHeight/2;
+
+    function setLoupeCanvasSize(){
+      const dpr=window.devicePixelRatio||1;
+      loupe.style.width=(loupeRadius*2)+"px";
+      loupe.style.height=(loupeRadius*2)+"px";
+      loupe.width=Math.floor(loupeRadius*2*dpr);
+      loupe.height=Math.floor(loupeRadius*2*dpr);
+      lctx.setTransform(dpr,0,0,dpr,0,0);
+    }
+    setLoupeCanvasSize();
+    window.addEventListener("resize", setLoupeCanvasSize);
+
+    function showLoupe(show){
+      loupeVisible=show;
+      loupe.style.display = show ? "block" : "none";
+    }
+
+    window.addEventListener("mousemove",(e)=>{
+      mouseX=e.clientX; mouseY=e.clientY;
+      if(introMode || !loupeEnabled || !isFullyAssembled()){ showLoupe(false); return; }
+      showLoupe(true);
+      loupe.style.left=(mouseX-loupeRadius)+"px";
+      loupe.style.top =(mouseY-loupeRadius)+"px";
+    });
+
+    window.addEventListener("wheel",(e)=>{
+      if(introMode || !loupeEnabled || !isFullyAssembled()) return;
+      loupeZoom *= (e.deltaY>0) ? 0.92 : 1.08;
+      loupeZoom = Math.max(1.2, Math.min(6.0, loupeZoom));
+    }, {passive:true});
+
+    window.addEventListener("keydown",(e)=>{
+      if(e.key.toLowerCase()==="l"){
+        loupeEnabled=!loupeEnabled;
+        if(!loupeEnabled) showLoupe(false);
+      }
+    });
+
+    function renderLoupe(scale, ox, oy){
+      if(introMode || !loupeEnabled || !loupeVisible || !isFullyAssembled()) return;
+
+      lctx.clearRect(0,0,loupeRadius*2,loupeRadius*2);
+      lctx.save();
+      lctx.beginPath();
+      lctx.arc(loupeRadius,loupeRadius,loupeRadius,0,Math.PI*2);
+      lctx.clip();
+
+      const bx=(mouseX-ox)/scale;
+      const by=(mouseY-oy)/scale;
+      const lScale=scale*loupeZoom;
+
+      for(const p of pieces){
+        const lx = loupeRadius - bx*lScale;
+        const ly = loupeRadius - by*lScale;
+        lctx.save();
+        lctx.translate(lx,ly);
+        lctx.scale(lScale,lScale);
+        lctx.translate(HOME_X,HOME_Y);
+        lctx.drawImage(p.img,0,0);
+        lctx.restore();
+      }
+      lctx.restore();
+    }
+
+    function draw(){
+      ctx.clearRect(0,0,window.innerWidth, window.innerHeight);
+
+      const speed = introMode ? INTRO_ZOOM_SPEED : POST_ZOOM_SPEED;
+      zoomMul += (zoomTarget - zoomMul) * speed;
+
+      const baseScale=getScale();
+      const scale=baseScale*zoomMul;
+      const {ox,oy}=getOffset(scale);
+
+      const now=performance.now();
+      const dt=Math.min(0.033, (now-lastTime)/1000);
+      lastTime=now;
+
+      if(introMode){
+        zoomTarget=INTRO_ZOOM_END;
+        for(const p of pieces){
+          p.x += p.vx*dt;
+          p.y += p.vy*dt;
+          p.rot += p.vrot*dt;
+          keepInFrameBounce(p);
+        }
+      } else {
+        for(const p of pieces){
+          if(p.snapped) continue;
+
+          if(now >= p.startMs && now <= p.startMs + p.durMs){
+            const t=Math.min(1, (now-p.startMs)/p.durMs);
+            const e=easeInOutCubic(t);
+            p.x = p.x0 + (HOME_X - p.x0)*e;
+            p.y = p.y0 + (HOME_Y - p.y0)*e;
+            p.rot = p.rot0 + (0 - p.rot0)*e;
+            if(t>=1) lockToHome(p);
+          }
+        }
+
+        if(autoAssembling && autoEndTime && now >= autoEndTime){
+          finalizeAutoAssemble();
+        }
+
+        const prog = autoAssembling ? computeProgressSmooth(now) : computeProgressLockedOnly();
+        const pct=Math.round(prog*100);
+        pctEl.textContent=pct;
+        pct2El.textContent=pct;
+        fillEl.style.width = pct+"%";
+      }
+
+      drawOutline(scale, ox, oy);
+
+      for(const p of pieces){
+        ctx.save();
+        ctx.translate(ox + p.x*scale, oy + p.y*scale);
+        ctx.rotate(p.rot);
+        ctx.scale(scale, scale);
+        ctx.drawImage(p.img,0,0);
+        ctx.restore();
+      }
+
+      renderLoupe(scale, ox, oy);
+      requestAnimationFrame(draw);
+    }
+
+    async function init(){
+      const imgs=[];
+      for(let i=1;i<=PIECE_COUNT;i++){
+        imgs.push(await loadImage(pieceSrc(i)));
+      }
+
+      BASE_W = imgs[0].naturalWidth;
+      BASE_H = imgs[0].naturalHeight;
+
+      pieces.length=0;
+      for(let i=0;i<imgs.length;i++){
+        const img=imgs[i];
+        const hit=await buildHitGrid(img);
+        const s=randomScatterForPiece({hit});
+
+        const spd=34+Math.random()*70;
+        const ang=Math.random()*Math.PI*2;
+        const vx=Math.cos(ang)*spd;
+        const vy=Math.sin(ang)*spd;
+        const vrot=(Math.random()*2-1)*0.35;
+
+        pieces.push({
+          id:i+1,
+          img, hit,
+          x:s.x, y:s.y, rot:s.rot,
+          x0:s.x, y0:s.y, rot0:s.rot,
+          startMs: performance.now() + 1e9,
+          durMs: 1200,
+          snapped:false,
+          anchor:{cx:BASE_W*0.5, cy:BASE_H*0.5},
+          vx, vy, vrot
+        });
+      }
+
+      computeAnchorsForOrdering();
+
+      const union = buildUnionMaskFromPieces();
+      outlineCanvas = buildOutlineRing(union);
+
+      draw();
+    }
+
+    init().catch(err=>{
+      console.error(err);
+      alert("Could not load images. Run a local server and ensure names piece_01.png etc.");
+    });
+  </script>
+</body>
+</html>
