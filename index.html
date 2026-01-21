@@ -1,3 +1,4 @@
+```html
 <!doctype html>
 <html lang="en">
 <head>
@@ -8,6 +9,166 @@
     html, body { margin:0; height:100%; background:#111; overflow:hidden; }
     canvas { display:block; }
 
+    /* Keep canvas ABOVE intro text (so fragments float over it) */
+    #c { position: relative; z-index: 2; }
+    #loupe { position: fixed; z-index: 30; }
+
+    /* ===================== INTRO TEXT (BEHIND FRAGMENTS) ===================== */
+    #introText {
+      position: fixed;
+      inset: 0;
+      z-index: 1;               /* behind canvas fragments */
+      display: grid;
+      place-items: center;
+      pointer-events: none;
+
+      transition: opacity 260ms ease, transform 260ms ease;
+      opacity: 1;
+      transform: translateY(0);
+    }
+    #introText.hideNow{
+      opacity: 0;
+      transform: translateY(2px);
+    }
+
+    .introBlock {
+      position: relative;
+      width: min(980px, calc(100vw - 56px));
+      text-align: center;
+      padding: 18px 18px 16px;
+      border-radius: 26px;
+      /* No hard box: just a soft halo so it reads */
+      background: radial-gradient(circle at 50% 45%,
+        rgba(0,0,0,0.42) 0%,
+        rgba(0,0,0,0.20) 32%,
+        rgba(0,0,0,0.00) 66%);
+    }
+
+    /* Option A: clean title entrance (no typewriter, no blinking) */
+    .introTitle{
+      margin: 0;
+      font-size: clamp(64px, 10vw, 170px);
+      font-weight: 820;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.92);
+      text-shadow:
+        0 20px 70px rgba(0,0,0,0.62),
+        0 0 1px rgba(255,255,255,0.28);
+      line-height: 0.95;
+      position: relative;
+      display: inline-block;
+      white-space: nowrap;
+
+      opacity: 0;
+      transform: translateY(8px) scale(0.995);
+      filter: blur(0.6px);
+      animation: titleIn 900ms cubic-bezier(.2,.9,.2,1) forwards;
+    }
+
+    @keyframes titleIn{
+      0%   { opacity:0; transform: translateY(10px) scale(0.992); filter: blur(1.1px); letter-spacing: 0.22em; }
+      60%  { opacity:1; transform: translateY(0px)  scale(1.000); filter: blur(0px);   letter-spacing: 0.14em; }
+      100% { opacity:1; transform: translateY(0px)  scale(1.000); filter: blur(0px);   letter-spacing: 0.14em; }
+    }
+
+    /* Grain on title only (subtle material) */
+    .introTitle::after{
+      content:"";
+      position:absolute;
+      inset:-10px;
+      pointer-events:none;
+      opacity:0.28;               /* adjust 0.18–0.38 */
+      mix-blend-mode: overlay;
+
+      background-image:
+        radial-gradient(rgba(255,255,255,0.10) 1px, transparent 1.4px),
+        radial-gradient(rgba(0,0,0,0.10) 1px, transparent 1.6px),
+        repeating-linear-gradient(0deg,
+          rgba(255,255,255,0.06) 0px,
+          rgba(255,255,255,0.06) 1px,
+          transparent 2px,
+          transparent 3px);
+
+      background-size: 12px 12px, 14px 14px, auto;
+      background-position: 0 0, 6px 8px, 0 0;
+      filter: contrast(1.18) brightness(1.03);
+      animation: titleGrain 1.2s steps(2) infinite;
+    }
+
+    @keyframes titleGrain{
+      0%   { transform: translate3d(0,0,0); }
+      25%  { transform: translate3d(-1px, 1px,0); }
+      50%  { transform: translate3d(1px,-1px,0); }
+      75%  { transform: translate3d(2px, 0,0); }
+      100% { transform: translate3d(0,0,0); }
+    }
+
+    .introSub {
+      margin: 14px auto 0;
+      max-width: 820px;
+      color: rgba(255,255,255,0.72);
+      font-size: 14px;
+      line-height: 1.45;
+      letter-spacing: 0.02em;
+      text-shadow: 0 12px 46px rgba(0,0,0,0.6);
+    }
+
+    /* Film grain ONLY over the text area (CSS only) */
+    .introBlock::after {
+      content: "";
+      position: absolute;
+      inset: 10px;
+      border-radius: 22px;
+      pointer-events: none;
+      opacity: 0.22; /* grain strength */
+      mix-blend-mode: overlay;
+
+      background-image:
+        radial-gradient(rgba(255,255,255,0.10) 1px, transparent 1.4px),
+        radial-gradient(rgba(0,0,0,0.10) 1px, transparent 1.6px),
+        repeating-linear-gradient(0deg,
+          rgba(255,255,255,0.06) 0px,
+          rgba(255,255,255,0.06) 1px,
+          transparent 2px,
+          transparent 4px),
+        repeating-linear-gradient(90deg,
+          rgba(0,0,0,0.05) 0px,
+          rgba(0,0,0,0.05) 1px,
+          transparent 2px,
+          transparent 6px),
+        radial-gradient(circle at 30% 40%, rgba(255,255,255,0.05), transparent 55%),
+        radial-gradient(circle at 70% 60%, rgba(0,0,0,0.05), transparent 55%);
+
+      background-size:
+        18px 18px,
+        22px 22px,
+        auto,
+        auto,
+        auto,
+        auto;
+
+      background-position:
+        0 0,
+        7px 9px,
+        0 0,
+        0 0,
+        0 0,
+        0 0;
+
+      filter: contrast(1.06) brightness(1.02);
+      animation: grainShift 2.0s steps(2) infinite;
+    }
+
+    @keyframes grainShift {
+      0%   { transform: translate3d(0,0,0); }
+      25%  { transform: translate3d(-1px, 1px,0); }
+      50%  { transform: translate3d(1px, -1px,0); }
+      75%  { transform: translate3d(2px, 1px,0); }
+      100% { transform: translate3d(0,0,0); }
+    }
+
+    /* ===================== UI PANEL (UNCHANGED) ===================== */
     #uiPanel{
       position:fixed; left:12px; top:12px; z-index:10;
       width:min(460px, calc(100vw - 24px));
@@ -89,50 +250,36 @@
     }
     .hint{ font-size:12px; color: rgba(255,255,255,0.7); line-height:1.25; }
 
+    /* ===================== START OVERLAY (BUTTON ONLY) ===================== */
     #startOverlay{
       position:fixed; inset:0; z-index:20;
-      display:grid; place-items:center;
+      display:grid;
+      place-items:end center;
+      padding-bottom: 8vh;
       pointer-events:auto;
-      background: radial-gradient(circle at 50% 40%, rgba(0,0,0,0.25), rgba(0,0,0,0.88));
-      transition: opacity 900ms ease;
+      background: radial-gradient(circle at 50% 55%, rgba(0,0,0,0.0), rgba(0,0,0,0.72));
+      transition: opacity 320ms ease;
     }
     #startOverlay.fadeOut{ opacity:0; pointer-events:none; }
 
-    .startCenter{
-      text-align:center;
-      width:min(820px, calc(100vw - 48px));
-      padding:24px 18px 20px;
-      border-radius:22px;
-      background: rgba(0,0,0,0.36);
-      backdrop-filter: blur(12px);
-      box-shadow: 0 20px 90px rgba(0,0,0,0.65);
-      color: rgba(255,255,255,0.92);
-      font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-      transform: translateY(0);
-      transition: transform 900ms ease, opacity 900ms ease;
-    }
-    #startOverlay.fadeOut .startCenter{ transform: translateY(10px) scale(0.99); opacity:0; }
-
-    .startTitle{
-      margin:0 0 8px;
-      font-size: clamp(30px, 4vw, 48px);
-      letter-spacing:0.6px;
-      font-weight:720;
-    }
-    .startSubtitle{
-      margin:0 0 18px;
-      color: rgba(255,255,255,0.72);
-      font-size:14px;
-      line-height:1.35;
-    }
     #btnStart{
-      padding:12px 18px; border-radius:14px;
-      background: rgba(255,255,255,0.92);
-      color:#000; font-weight:750; letter-spacing:0.2px;
-      box-shadow: 0 12px 40px rgba(0,0,0,0.4);
-      transition: transform 180ms ease, background 180ms ease;
+      padding:12px 22px;
+      border-radius:999px;
+      background: rgba(255,255,255,0.0);
+      border: 1px solid rgba(255,255,255,0.55);
+      color: rgba(255,255,255,0.92);
+      font-weight: 720;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      box-shadow: 0 16px 60px rgba(0,0,0,0.45);
+      transition: transform 180ms ease, background 180ms ease, border-color 180ms ease;
+      pointer-events: auto;
     }
-    #btnStart:hover{ background: rgba(255,255,255,1); transform: translateY(-1px); }
+    #btnStart:hover{
+      background: rgba(255,255,255,0.10);
+      border-color: rgba(255,255,255,0.80);
+      transform: translateY(-1px);
+    }
     #btnStart:active{ transform: translateY(1px); }
 
     .vignette{
@@ -159,13 +306,20 @@
 <body>
   <div class="vignette" id="vignette"></div>
 
-  <div id="startOverlay">
-    <div class="startCenter">
-      <h1 class="startTitle">Fragments / Réassemblage</h1>
-      <p class="startSubtitle">Assemblage manuel : clique puis déplace le fragment. 
-        Assemblage automatique : ajuste tes paramètres de vitesse et observe le message se révéler !</p>
-      <button id="btnStart">Start</button>
+  <!-- INTRO TEXT BEHIND MOVING FRAGMENTS -->
+  <div id="introText">
+    <div class="introBlock">
+      <h1 class="introTitle">FRAGMENTS</h1>
+      <p class="introSub">
+        Assemblage manuel : clique puis déplace le fragment.<br>
+        Assemblage automatique : ajuste la vitesse et observe le message se révéler.
+      </p>
     </div>
+  </div>
+
+  <!-- Start overlay only holds the button -->
+  <div id="startOverlay">
+    <button id="btnStart">Enter</button>
   </div>
 
   <div id="uiPanel">
@@ -692,6 +846,7 @@
     const startOverlay=document.getElementById("startOverlay");
     const btnStart=document.getElementById("btnStart");
     const vignette=document.getElementById("vignette");
+    const introText=document.getElementById("introText");
 
     function enterInteractiveMode(){
       if(!introMode) return;
@@ -703,10 +858,16 @@
       applyScatterInstant();
       for(const p of pieces){ p.vx=0; p.vy=0; p.vrot=0; }
 
+      /* seamless hide */
       startOverlay.classList.add("fadeOut");
       vignette.classList.add("soft");
       uiPanel.classList.add("show");
-      setTimeout(()=>{ startOverlay.style.display="none"; }, 980);
+
+      introText.classList.add("hideNow");
+      setTimeout(()=>{
+        startOverlay.style.display="none";
+        introText.style.display="none";
+      }, 320);
     }
     btnStart.addEventListener("click", enterInteractiveMode);
     window.addEventListener("keydown", (e)=>{ if(e.key==="Enter") enterInteractiveMode(); });
@@ -926,11 +1087,9 @@
 
     init().catch(err=>{
       console.error(err);
-      alert("Could not load images. Run a local server and ensure names piece_01.png etc.");
+      alert("Could not load images. Check names piece_01.png etc.");
     });
   </script>
 </body>
 </html>
-
-
-
+```
